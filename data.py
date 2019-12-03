@@ -21,9 +21,6 @@ class StandardImgData():
             transforms.Normalize(mean=[.5, ], std=[.5]),
         ])
 
-        if dataset == 'mnist':
-            self.get_mnist_dataloaders()
-
     def get_mnist_dataloaders(self):
         full_dataset = datasets.MNIST(root=self.root, train=True, transform=self.transform, target_transform=None,
                                       download=True)
