@@ -24,7 +24,7 @@ class SGAN_Manifold_Reg():
         self.train_unl_loader, self.train_lb_loader, self.valid_loader, self.test_loader = data_loaders
 
     def train(self, num_epochs):
-        XE = nn.CrossEntropyLoss().cuda()
+        ce_criterion = nn.CrossEntropyLoss().cuda()
         mse = nn.MSELoss().cuda()
 
         opt_G = torch.optim.Adam(self.G.parameters(), lr=self.lr)
@@ -56,12 +56,13 @@ class SGAN_Manifold_Reg():
                 features_real, logits_unl = self.D(unl_train_x)
 
                 logits_sum_unl = torch.logsumexp(logits_unl, dim=1)
-                logits_sum_gen = torch.logsumexp(logits_fake, dim=1)
-                loss_unsupervised = torch.mean(F.softplus(logits_sum_unl)) - torch.mean(logits_sum_unl) + torch.mean(F.softplus(logits_sum_gen))
+                logits_sum_fake = torch.logsumexp(logits_fake, dim=1)
+                loss_unsupervised = torch.mean(F.softplus(logits_sum_unl)) - torch.mean(logits_sum_unl) + torch.mean(
+                    F.softplus(logits_sum_fake))
 
-                loss_supervised = torch.mean(XE(logits_lab, lb_train_y))
+                loss_supervised = torch.mean(ce_criterion(logits_lab, lb_train_y))
                 loss_manifold_reg = mse(features_fake, features_fake_pertubed) \
-                               / self.batch_size_cuda
+                                    / self.batch_size_cuda
 
                 loss_D = loss_supervised + .5 * loss_unsupervised + 1e-3 * loss_manifold_reg
                 loss_D.backward()
@@ -96,7 +97,7 @@ class SGAN_Manifold_Reg():
                     x = x.cuda()
                     y = y.cuda()
                     __, logits = self.D(x)
-                    loss = XE(logits, y)
+                    loss = ce_criterion(logits, y)
                     self.writer.add_scalar('val_loss', loss, test_step)
                     test_step += 1
                     val_loss += loss.item()
@@ -132,8 +133,8 @@ class SGAN_Manifold_Reg():
         first_idx = 0
         with torch.no_grad():
             for x, y in self.test_loader:
-                x = x.cuda();
-                y = y.cuda();
+                x = x.cuda()
+                y = y.cuda()
                 __, logits = model(x)
                 y_scores[first_idx:first_idx + len(y)] = logits
                 y_true[first_idx:first_idx + len(y)] = y
