@@ -2,6 +2,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+
 from tensorboardX import SummaryWriter
 from sklearn import metrics
 
@@ -10,7 +11,7 @@ class SGAN_Manifold_Reg():
     def __init__(self, batch_size, latent_dim, num_classes, generator, discriminator, data_loaders):
 
         self.batch_size = batch_size
-        self.batch_size_cuda = torch.tensor(self.batch_size, dtype=torch.float32).cuda()
+        self.batch_size_cuda = torch.tensor(self.batch_size).cuda()
         self.latent_dim = latent_dim
         self.num_classes = num_classes
         self.lr = 0.0003
@@ -50,9 +51,9 @@ class SGAN_Manifold_Reg():
                 imgs_fake = self.G(z)
                 imgs_fake_perturbed = self.G(z_perturbed)
 
-                __, logits_lab = self.D(lb_train_x)
+                __, logits_lb = self.D(lb_train_x)
                 features_fake, logits_fake = self.D(imgs_fake)
-                features_fake_pertubed, _ = self.D(imgs_fake_perturbed)
+                features_fake_pertubed, __ = self.D(imgs_fake_perturbed)
                 features_real, logits_unl = self.D(unl_train_x)
 
                 logits_sum_unl = torch.logsumexp(logits_unl, dim=1)
@@ -60,7 +61,7 @@ class SGAN_Manifold_Reg():
                 loss_unsupervised = torch.mean(F.softplus(logits_sum_unl)) - torch.mean(logits_sum_unl) + torch.mean(
                     F.softplus(logits_sum_fake))
 
-                loss_supervised = torch.mean(ce_criterion(logits_lab, lb_train_y))
+                loss_supervised = torch.mean(ce_criterion(logits_lb, lb_train_y))
                 loss_manifold_reg = mse(features_fake, features_fake_pertubed) \
                                     / self.batch_size_cuda
 
@@ -118,8 +119,7 @@ class SGAN_Manifold_Reg():
 
     def define_noise(self):
         z = torch.randn(self.batch_size, self.latent_dim).cuda()
-        _z = torch.randn(self.batch_size, self.latent_dim).cuda()
-        z_perturbed = z + _z * 1e-5
+        z_perturbed = z + torch.randn(self.batch_size, self.latent_dim).cuda() * 1e-5
         return z, z_perturbed
 
     def eval(self, epoch_idx):
