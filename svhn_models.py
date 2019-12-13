@@ -8,34 +8,34 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.net = nn.Sequential(
             nn.Dropout(.2),
-            weight_norm(nn.Conv2d(3, 96, 3, stride=1, padding=1)),
+            weight_norm(nn.Conv2d(3, 64, 3, stride=1, padding=1)),
             nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(96, 96, 3, stride=1, padding=1)),
+            weight_norm(nn.Conv2d(64, 64, 3, stride=1, padding=1)),
             nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(96, 96, 3, stride=2, padding=1)),
-            nn.LeakyReLU(),
-
-            nn.Dropout(.5),
-            weight_norm(nn.Conv2d(96, 192, 3, stride=1, padding=1)),
-            nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(192, 192, 3, stride=1, padding=1)),
-            nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(192, 192, 3, stride=2, padding=1)),
+            weight_norm(nn.Conv2d(64, 64, 3, stride=2, padding=1)),
             nn.LeakyReLU(),
 
             nn.Dropout(.5),
-            weight_norm(nn.Conv2d(192, 192, 3, stride=1, padding=0)),
+            weight_norm(nn.Conv2d(64, 128, 3, stride=1, padding=1)),
             nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(192, 192, 1, stride=1, padding=0)),
+            weight_norm(nn.Conv2d(128, 128, 3, stride=1, padding=1)),
             nn.LeakyReLU(),
-            weight_norm(nn.Conv2d(192, 192, 1, stride=1, padding=0)),
+            weight_norm(nn.Conv2d(128, 128, 3, stride=2, padding=1)),
+            nn.LeakyReLU(),
+
+            nn.Dropout(.5),
+            weight_norm(nn.Conv2d(128, 128, 3, stride=1, padding=0)),
+            nn.LeakyReLU(),
+            weight_norm(nn.Conv2d(128, 128, 1, stride=1, padding=0)),
+            nn.LeakyReLU(),
+            weight_norm(nn.Conv2d(128, 128, 1, stride=1, padding=0)),
             nn.LeakyReLU(),
 
             nn.AdaptiveAvgPool2d(1),
             Flatten()
         )
 
-        self.fc = weight_norm(nn.Linear(192, num_classes))
+        self.fc = weight_norm(nn.Linear(128, num_classes))
 
     def forward(self, x):
         inter_layer = self.net(x)

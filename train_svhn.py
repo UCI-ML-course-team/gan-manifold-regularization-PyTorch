@@ -2,7 +2,7 @@ from data import StandardImgData
 from cifar_models import Discriminator, Generator, weights_init
 from sgan import SGAN_Manifold_Reg
 
-dataset = 'cifar'
+dataset = 'svhn'
 num_classes = 10
 latent_dim = 100
 batch_size = 128

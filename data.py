@@ -34,6 +34,12 @@ class StandardImgData():
             test_dataset = datasets.CIFAR10(root=self.root, train=False, transform=self.transform,
                                             target_transform=None,
                                             download=True)
+        elif dataset == 'svhn':
+            full_dataset = datasets.SVHN(root=self.root, split='train', transform=self.transform, target_transform=None,
+                                            download=True)
+            test_dataset = datasets.SVHN(root=self.root, split='test', transform=self.transform,
+                                            target_transform=None,
+                                            download=True)
 
         train_size = int(0.8 * len(full_dataset))
         valid_size = len(full_dataset) - train_size
