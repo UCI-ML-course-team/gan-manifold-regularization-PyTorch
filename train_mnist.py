@@ -7,7 +7,6 @@ num_classes = 10
 latent_dim = 100
 batch_size = 128
 samples_per_class = 100
-unlb_samples_per_class = 5000
 
 img_data = StandardImgData(samples_per_class, batch_size, dataset)
 
