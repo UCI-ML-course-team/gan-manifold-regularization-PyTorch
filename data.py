@@ -11,7 +11,6 @@ class StandardImgData():
         self.img_sz = 32
         self.samples_per_class = samples_per_class
         self.batch_size = batch_size
-        self.unlab_samples_per_class = unlab_samples_per_class
 
         self.transform = transforms.Compose([
             transforms.Resize(self.img_sz),
