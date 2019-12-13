@@ -4,8 +4,7 @@ from torch.utils import data
 
 
 class StandardImgData():
-    def __init__(self, samples_per_class, batch_size, dataset,
-                 unlab_samples_per_class=1000):
+    def __init__(self, samples_per_class, batch_size, dataset):
 
         self.root = 'data/%s/' % dataset
         self.dataset = dataset
@@ -45,7 +44,7 @@ class StandardImgData():
         valid_size = len(full_dataset) - train_size
         train_dataset, valid_dataset = torch.utils.data.random_split(full_dataset, [train_size, valid_size])
 
-        train_unl_dataset = self.__get_samples_per_class(train_dataset, self.unlab_samples_per_class)
+        train_unl_dataset = train_dataset
         train_lb_dataset = self.__get_samples_per_class(train_dataset, self.samples_per_class)
 
         train_unl_dataloader = data.DataLoader(train_unl_dataset, batch_size=self.batch_size, shuffle=True)

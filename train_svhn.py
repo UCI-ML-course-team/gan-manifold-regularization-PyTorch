@@ -9,7 +9,7 @@ batch_size = 128
 samples_per_class = 100
 unlb_samples_per_class = 5000
 
-img_data = StandardImgData(samples_per_class, batch_size, dataset, unlb_samples_per_class)
+img_data = StandardImgData(samples_per_class, batch_size, dataset)
 
 G = Generator(latent_dim).apply(weights_init)
 D = Discriminator(num_classes).apply(weights_init)
