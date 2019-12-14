@@ -24,14 +24,15 @@ class SGAN_Manifold_Reg():
         self.D = discriminator.cuda()
         self.train_unl_loader, self.train_lb_loader, self.valid_loader, self.test_loader = data_loaders
 
+        self.train_step = 0
+        self.test_step = 0
+
     def train(self, num_epochs):
         ce_criterion = nn.CrossEntropyLoss().cuda()
         mse = nn.MSELoss().cuda()
 
         opt_G = torch.optim.Adam(self.G.parameters(), lr=self.lr)
         opt_D = torch.optim.Adam(self.D.parameters(), lr=self.lr)
-
-        train_step = test_step = 0
 
         for epoch_idx in range(num_epochs):
 
@@ -78,36 +79,20 @@ class SGAN_Manifold_Reg():
                 features_real, __ = self.D(unl_train_x)
                 m1 = torch.mean(features_real, dim=0)
                 m2 = torch.mean(features_fake, dim=0)
-                loss_G = torch.mean((m1 - m2) ** 2)
+                loss_G = torch.mean((m1 - m2) ** 2)  # Feature matching
                 loss_G.backward()
                 opt_G.step()
                 avg_G_loss += loss_G
 
-                self.writer.add_scalar('G_loss', loss_G, train_step)
-                self.writer.add_scalar('D_loss', loss_D, train_step)
-                train_step += 1
+                self.writer.add_scalar('G_loss', loss_G, self.train_step)
+                self.writer.add_scalar('D_loss', loss_D, self.train_step)
+                self.train_step += 1
 
             # Evaluate
             avg_G_loss /= len(self.train_unl_loader)
             avg_D_loss /= len(self.train_unl_loader)
 
-            val_loss = corrects = total_samples = 0.0
-            with torch.no_grad():
-                self.D.eval()
-                for x, y in self.valid_loader:
-                    x = x.cuda()
-                    y = y.cuda()
-                    __, logits = self.D(x)
-                    loss = ce_criterion(logits, y)
-                    self.writer.add_scalar('val_loss', loss, test_step)
-                    test_step += 1
-                    val_loss += loss.item()
-                    preds = torch.argmax(logits, dim=1)
-                    corrects += torch.sum(preds == y)
-                    total_samples += len(y)
-
-                val_loss /= len(self.valid_loader)
-                acc = corrects.item() / total_samples
+            val_loss, acc = self.get_validation_performance(ce_criterion)
 
             print('Epoch %d disc_loss %.3f gen_loss %.3f val_loss %.3f acc %.3f' % (
                 epoch_idx, avg_D_loss, avg_G_loss, val_loss, acc))
@@ -117,10 +102,26 @@ class SGAN_Manifold_Reg():
 
         self.writer.close()
 
-    def define_noise(self):
-        z = torch.randn(self.batch_size, self.latent_dim).cuda()
-        z_perturbed = z + torch.randn(self.batch_size, self.latent_dim).cuda() * 1e-5
-        return z, z_perturbed
+    def get_validation_performance(self, criterion):
+        val_loss = corrects = total_samples = 0.0
+        with torch.no_grad():
+            self.D.eval()
+            for x, y in self.valid_loader:
+                x = x.cuda()
+                y = y.cuda()
+                __, logits = self.D(x)
+                loss = criterion(logits, y)
+                self.writer.add_scalar('val_loss', loss, self.test_step)
+                self.test_step += 1
+                val_loss += loss.item()
+                preds = torch.argmax(logits, dim=1)
+                corrects += torch.sum(preds == y)
+                total_samples += len(y)
+
+            val_loss /= len(self.valid_loader)
+            acc = corrects.item() / total_samples
+
+        return val_loss, acc
 
     def eval(self, epoch_idx):
         model = self.D
@@ -146,3 +147,8 @@ class SGAN_Manifold_Reg():
         y_pred = np.argmax(y_scores, axis=1)
         acc = metrics.accuracy_score(y_true, y_pred)
         print('Accuracy: %.3f' % (acc))
+
+    def define_noise(self):
+        z = torch.randn(self.batch_size, self.latent_dim).cuda()
+        z_perturbed = z + torch.randn(self.batch_size, self.latent_dim).cuda() * 1e-5
+        return z, z_perturbed
