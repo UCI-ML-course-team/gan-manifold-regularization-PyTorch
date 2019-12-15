@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import torch
 
 from tensorboardX import SummaryWriter
-from sklearn import metrics
 
 
 class SGAN_Manifold_Reg():
@@ -24,13 +23,13 @@ class SGAN_Manifold_Reg():
         self.D = discriminator.cuda()
         self.train_unl_loader, self.train_lb_loader, self.valid_loader, self.test_loader = data_loaders
 
+        self.ce_criterion = nn.CrossEntropyLoss().cuda()
+        self.mse = nn.MSELoss().cuda()
+
         self.train_step = 0
         self.test_step = 0
 
     def train(self, num_epochs):
-        ce_criterion = nn.CrossEntropyLoss().cuda()
-        mse = nn.MSELoss().cuda()
-
         opt_G = torch.optim.Adam(self.G.parameters(), lr=self.lr)
         opt_D = torch.optim.Adam(self.D.parameters(), lr=self.lr)
 
@@ -62,8 +61,8 @@ class SGAN_Manifold_Reg():
                 loss_unsupervised = torch.mean(F.softplus(logits_sum_unl)) - torch.mean(logits_sum_unl) + torch.mean(
                     F.softplus(logits_sum_fake))
 
-                loss_supervised = torch.mean(ce_criterion(logits_lb, lb_train_y))
-                loss_manifold_reg = mse(features_fake, features_fake_pertubed) \
+                loss_supervised = torch.mean(self.ce_criterion(logits_lb, lb_train_y))
+                loss_manifold_reg = self.mse(features_fake, features_fake_pertubed) \
                                     / self.batch_size_cuda
 
                 loss_D = loss_supervised + .5 * loss_unsupervised + 1e-3 * loss_manifold_reg
@@ -92,7 +91,7 @@ class SGAN_Manifold_Reg():
             avg_G_loss /= len(self.train_unl_loader)
             avg_D_loss /= len(self.train_unl_loader)
 
-            val_loss, acc = self.get_validation_performance(ce_criterion)
+            acc, val_loss = self.eval()
 
             print('Epoch %d disc_loss %.3f gen_loss %.3f val_loss %.3f acc %.3f' % (
                 epoch_idx, avg_D_loss, avg_G_loss, val_loss, acc))
@@ -102,17 +101,23 @@ class SGAN_Manifold_Reg():
 
         self.writer.close()
 
-    def get_validation_performance(self, criterion):
+    def eval(self, test=False, epoch_idx=None):
+        if test:
+            self.D.load_state_dict(torch.load(self.save_path + 'disc_{}.pth'.format(epoch_idx)))
+            eval_loader = self.test_loader
+        else:
+            eval_loader = self.valid_loader
+
         val_loss = corrects = total_samples = 0.0
         with torch.no_grad():
             self.D.eval()
-            for x, y in self.valid_loader:
-                x = x.cuda()
-                y = y.cuda()
+            for x, y in eval_loader:
+                x, y = x.cuda(), y.cuda()
                 __, logits = self.D(x)
-                loss = criterion(logits, y)
-                self.writer.add_scalar('val_loss', loss, self.test_step)
-                self.test_step += 1
+                loss = self.ce_criterion(logits, y)
+                if not test:
+                    self.writer.add_scalar('val_loss', loss, self.test_step)
+                    self.test_step += 1
                 val_loss += loss.item()
                 preds = torch.argmax(logits, dim=1)
                 corrects += torch.sum(preds == y)
@@ -121,32 +126,7 @@ class SGAN_Manifold_Reg():
             val_loss /= len(self.valid_loader)
             acc = corrects.item() / total_samples
 
-        return val_loss, acc
-
-    def eval(self, epoch_idx):
-        model = self.D
-        model.load_state_dict(torch.load(self.save_path + 'disc_{}.pth'.format(epoch_idx)))
-        model.eval()
-
-        y_scores = torch.empty((len(self.test_loader) * self.batch_size, self.num_classes)).cuda()
-        y_true = torch.empty((len(self.test_loader) * self.batch_size,)).cuda()
-
-        first_idx = 0
-        with torch.no_grad():
-            for x, y in self.test_loader:
-                x = x.cuda()
-                y = y.cuda()
-                __, logits = model(x)
-                y_scores[first_idx:first_idx + len(y)] = logits
-                y_true[first_idx:first_idx + len(y)] = y
-                first_idx += len(y)
-
-        y_scores = y_scores[:first_idx].cpu().numpy()
-        y_true = y_true[:first_idx].cpu().numpy()
-
-        y_pred = np.argmax(y_scores, axis=1)
-        acc = metrics.accuracy_score(y_true, y_pred)
-        print('Accuracy: %.3f' % (acc))
+        return acc, val_loss
 
     def define_noise(self):
         z = torch.randn(self.batch_size, self.latent_dim).cuda()
