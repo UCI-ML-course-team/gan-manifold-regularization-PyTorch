@@ -58,7 +58,7 @@ class StandardImgData():
     def __get_samples_per_class(dataset, num_samples):
         labels = torch.tensor([y for x, y in dataset])
         indices = torch.arange(len(labels))
-        indices = torch.cat([indices[labels == x][:num_samples] for x in torch.unique(labels)])
+        indices = torch.cat([indices[labels == y][:num_samples] for y in torch.unique(labels)])
         dataset = data.Subset(dataset, indices)
         return dataset
 
